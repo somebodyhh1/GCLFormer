@@ -57,7 +57,7 @@ def drop_feature(x, drop_prob):
     t = x.clone()
     t[:, drop_mask] = 0
     return t
-def aug_edge(adj,drop_prob,rb_order,n):
+def get_pos_edge(adj,drop_prob,rb_order,n):
     adj=dropout_adj(adj,p=drop_prob)[0]
     adjs=[]
     adjs.append(adj)
@@ -234,23 +234,19 @@ def main():
     more_lamda=3.0/total_epoch
     torch.cuda.empty_cache()
     mask=cal_mask_e(n,adj_train,1).to(device)
-    adjs=aug_edge(adj_train,0,args.rb_order,n)
+    adjs=get_pos_edge(adj_train,0,args.rb_order,n)
     for run in range(args.runs):
-        #model.reset_parameters()
-        start_sample=False
         optimizer = torch.optim.Adam(model.parameters(),weight_decay=args.weight_decay, lr=args.lr)
         for epoch in range(1,total_epoch+1):
-            if epoch > 20000:
-                start_sample=True
             model.train()
             optimizer.zero_grad()
             x=dataset.graph['node_feat']
             x1=drop_feature(x,drop_rate1)
             x2=drop_feature(x,drop_rate2)
-            adjs1=aug_edge(adj_train,drop_rate1,args.rb_order,n)
-            adjs2=aug_edge(adj_train,drop_rate1,args.rb_order,n)
-            out1, link_loss1_ = model(x1, adjs1, args.tau1,start_sample=start_sample)
-            out2, link_loss2_ = model(x2, adjs2, args.tau1,start_sample=start_sample)
+            adjs1=get_pos_edge(adj_train,drop_rate1,args.rb_order,n)
+            adjs2=get_pos_edge(adj_train,drop_rate1,args.rb_order,n)
+            out1, link_loss1_ = model(x1, adjs1, args.tau1)
+            out2, link_loss2_ = model(x2, adjs2, args.tau1)
 
             link_loss_=link_loss1_
             link_loss_.extend(link_loss2_)
@@ -259,12 +255,9 @@ def main():
             CLloss=model.loss(out1,out2,direct_neighbors,adjs[0],mask,tau=args.tau2)
             loss=CLloss-args.lamda*link_loss_
             #args.lamda+=more_lamda
-
             loss.backward()
             optimizer.step()
             torch.cuda.empty_cache()
-            res={'CLloss':CLloss,'Link_Loss':link_loss_}
-            print(res)
             homos=[]
             if not debug:
                 wandb.log(res)
@@ -279,6 +272,8 @@ def main():
                     res={'micro':micro,'macro':macro}
                     micros.append([micro,macro])
                     print(res)
+                    with open('result.txt','a') as f:
+                        f.write((str)(micro)+" ")
                     if debug == False:
                         wandb.log(res)
                 if args.task=='link_prediction':
@@ -361,6 +356,8 @@ def main():
             print(max_NMI,NMI)
             if not debug:
                 wandb.log(res)
+    with open('result.txt','a') as f:
+        f.write("\n")
     #results = logger.print_statistics()
 if __name__ == '__main__':
     import time

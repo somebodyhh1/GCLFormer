@@ -45,10 +45,8 @@ def sample_edges(adj,n,pre_adj,pre_label,pre_score,epsilon_l=0,epsilon_h=1):
         neg_idx=torch.nonzero(pre_label==0).squeeze()
         pre_pos_score,pre_neg_score=pre_score[pos_idx],pre_score[neg_idx]
         pre_pos,pre_neg=pre_adj[:,pos_idx],pre_adj[:,neg_idx]
-        
-        
         avg_pos_attn=torch.mean(pre_pos_score)
-        new_pos_idx=torch.nonzero(pre_neg_score>avg_pos_attn).squeeze(1)
+        new_pos_idx=torch.nonzero(pre_neg_score>0.7).squeeze(1)
         print("avg score==",torch.mean(pre_pos_score),torch.mean(pre_neg_score),new_pos_idx.shape)
         new_pos=pre_neg[:,new_pos_idx]
         k=new_pos_idx.shape[0]
