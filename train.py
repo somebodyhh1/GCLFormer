@@ -348,7 +348,8 @@ def main():
             max_idx=np.argmax(NMIs)
             max_ARI=ARIs[max_idx]
             res={'max_NMI':max_NMI,'max_ARI':max_ARI,'max_idx':max_idx}
-            print(max_NMI,NMI) # The maximization is used to determine the best epoch
+            print(max_NMI,max_idx) # The maximization is used to determine the best epoch
+            print(NMI)
             if not debug:
                 wandb.log(res)
     with open('result.txt','a') as f:
