@@ -255,6 +255,9 @@ def get_dis_with_center(x,y,z1,z2):
     norms=[]
     for label in range(max_y+1):
         indice=np.where(y==label)[0]
+        length=len(indice)
+        train_len=(int)(0.1*length)
+        indice=indice[0:train_len]
         temp=x[indice,:]
         mu.append(torch.mean(temp,dim=0))
     x=origin_x

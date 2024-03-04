@@ -224,8 +224,6 @@ def main():
     best_test_micro_r=0
     best_roc_val_r,best_ap_val_r=0,0
     
-    best_NMI,best_ARI=0,0
-    best_NMI_iter,best_ARI_iter=0,0
     NMIs=[]
     ARIs=[]
     roc_ap=[]
@@ -313,9 +311,6 @@ def main():
                     model.eval()
                     out0, link_loss0_ = model(x, adjs, args.tau1)
                     sim_y,sim_i,delta,micro_,NMI,ARI=get_dis_with_center(out0,dataset.label,out1,out2)
-                    if NMI>best_NMI and ARI>best_ARI:
-                        best_NMI=NMI
-                        best_ARI=ARI
                     print(NMI,ARI)
                     NMIs.append(NMI)
                     ARIs.append(ARI)
@@ -335,7 +330,7 @@ def main():
             micros=np.array(micros)[:,0]
             max_micro=np.max(micros)
             max_index=np.argmax(micros)
-            print(max_micro,max_index)
+            print(max_micro,max_index) # The maximization is used to determine the best epoch
             print(micro)
             if not debug:
                 wandb.log({"max_micro":max_micro,"max_index":max_index})
@@ -353,7 +348,7 @@ def main():
             max_idx=np.argmax(NMIs)
             max_ARI=ARIs[max_idx]
             res={'max_NMI':max_NMI,'max_ARI':max_ARI,'max_idx':max_idx}
-            print(max_NMI,NMI)
+            print(max_NMI,NMI) # The maximization is used to determine the best epoch
             if not debug:
                 wandb.log(res)
     with open('result.txt','a') as f:
