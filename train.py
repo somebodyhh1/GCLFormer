@@ -239,9 +239,9 @@ def main():
             model.train()
             optimizer.zero_grad()
             x=dataset.graph['node_feat']
-            x1=drop_feature(x,drop_rate1)
+            x1=drop_feature(x,drop_rate1) #drop on node feature helps and the the bias is limited
             x2=drop_feature(x,drop_rate2)
-            adjs1=get_pos_edge(adj_train,drop_rate1,args.rb_order,n)
+            adjs1=get_pos_edge(adj_train,drop_rate1,args.rb_order,n) #initialize the positive edge window with part of edges
             adjs2=get_pos_edge(adj_train,drop_rate1,args.rb_order,n)
             out1, link_loss1_ = model(x1, adjs1, args.tau1)
             out2, link_loss2_ = model(x2, adjs2, args.tau1)
