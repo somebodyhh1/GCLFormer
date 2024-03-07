@@ -230,7 +230,24 @@ def kernelized_gumbel_softmax(query, key, value, kernel_transformation, projecti
 
     else:
         return z_output
-
+def drop_feature(x, drop_prob):
+    drop_mask = torch.empty(
+        (x.size(1), ),
+        dtype=torch.float32,
+        device=x.device).uniform_(0, 1) < drop_prob
+    t = x.clone()
+    t[:, drop_mask] = 0
+    return t
+from torch_geometric.utils import dropout_adj
+from data_utils import load_fixed_splits, adj_mul
+def get_pos_edge(adj,drop_prob,rb_order,n):
+    adj=dropout_adj(adj,p=drop_prob)[0]
+    adjs=[]
+    adjs.append(adj)
+    for i in range(rb_order - 1): # edge_index of high order adjacency
+        adj = adj_mul(adj, adj, n)
+        adjs.append(adj)
+    return adjs
 def add_conv_relational_bias(x, edge_index, b, trans='sigmoid'):
     '''
     compute updated result by the relational bias of input adjacency
@@ -393,7 +410,11 @@ class NodeFormer(nn.Module):
     def get_QK(self,x):
         return self.convs[0].get_QK(x)
         
-    def forward(self, x, adjs, tau=1.0,nb_random_features=-1,start_sample=False):
+    def forward(self, x, adjs, tau=1.0,drop=0,nb_random_features=-1,start_sample=False):
+        if nb_random_features == -1:
+            x=drop_feature(x,drop) #drop on node feature helps and the the bias is limited
+            adjs=get_pos_edge(adjs,drop,3,x.shape[0]) #initialize the positive edge window with part of edges
+            
         x = x.unsqueeze(0) # [B, N, H, D], B=1 denotes number of graph
         layer_ = []
         link_loss_ = []

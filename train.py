@@ -21,6 +21,7 @@ import time
 import yaml
 from utils import mask_test_edges,get_roc_score_node
 from draw import draw_tSNE,draw_tSNE_b
+from nodeformer import get_pos_edge
 result=False
 debug=True
 import warnings
@@ -49,22 +50,8 @@ def cal_mask_e(n,edge_index,prob=0.5):
         mask[i,t]=0
     return mask
 
-def drop_feature(x, drop_prob):
-    drop_mask = torch.empty(
-        (x.size(1), ),
-        dtype=torch.float32,
-        device=x.device).uniform_(0, 1) < drop_prob
-    t = x.clone()
-    t[:, drop_mask] = 0
-    return t
-def get_pos_edge(adj,drop_prob,rb_order,n):
-    adj=dropout_adj(adj,p=drop_prob)[0]
-    adjs=[]
-    adjs.append(adj)
-    for i in range(rb_order - 1): # edge_index of high order adjacency
-        adj = adj_mul(adj, adj, n)
-        adjs.append(adj)
-    return adjs
+
+
 
 # NOTE: for consistent data splits, see data_utils.rand_train_test_idx
 def fix_seed(seed):
@@ -98,8 +85,8 @@ def main():
         else:
             print("Existing")
             return
-        drop_rate1=config['drop_rate1']
-        drop_rate2=config['drop_rate2']
+        d1=config['drop_rate1']
+        d2=config['drop_rate2']
         args.lamda=config['lambda']
         args.lr=config['lr']
         args.weight_decay=config['wd']
@@ -117,8 +104,8 @@ def main():
         args.tau2=wandb.config.tau2
         args.num_heads=wandb.config.num_heads
         args.dropout=wandb.config.drop_out
-        drop_rate1=wandb.config.drop_rate1
-        drop_rate2=wandb.config.drop_rate2
+        d1=wandb.config.drop_rate1
+        d2=wandb.config.drop_rate2
         total_epoch=2000
     else:
         if args.task=='node_classification':
@@ -133,8 +120,8 @@ def main():
         else:
             print("Existing")
             return
-        drop_rate1=config['drop_rate1']
-        drop_rate2=config['drop_rate2']
+        d1=config['drop_rate1']
+        d2=config['drop_rate2']
         args.lamda=config['lambda']
         args.lr=config['lr']
         args.weight_decay=config['wd']
@@ -239,12 +226,9 @@ def main():
             model.train()
             optimizer.zero_grad()
             x=dataset.graph['node_feat']
-            x1=drop_feature(x,drop_rate1) #drop on node feature helps and the the bias is limited
-            x2=drop_feature(x,drop_rate2)
-            adjs1=get_pos_edge(adj_train,drop_rate1,args.rb_order,n) #initialize the positive edge window with part of edges
-            adjs2=get_pos_edge(adj_train,drop_rate1,args.rb_order,n)
-            out1, link_loss1_ = model(x1, adjs1, args.tau1)
-            out2, link_loss2_ = model(x2, adjs2, args.tau1)
+
+            out1, link_loss1_ = model(x, adj_train, args.tau1,d1)
+            out2, link_loss2_ = model(x, adj_train, args.tau1,d2)
 
             link_loss_=link_loss1_
             link_loss_.extend(link_loss2_)
@@ -276,7 +260,7 @@ def main():
                         wandb.log(res)
                 if args.task=='link_prediction':
                     model.eval()
-                    out0, link_loss0_ = model(x, adjs, args.tau1)
+                    out0, link_loss0_ = model(x, adjs, args.tau1,nb_random_features=1000)
                     cal_neighbor_sim(out0,adjs[0])
                     cal_neighbor_sim(out0,adj0)
                     roc_curr_val, ap_curr_val = get_roc_score_node(emb=out0.detach().cpu().numpy(),
@@ -309,7 +293,7 @@ def main():
                 if args.task=='clustering':
                     from evalCL import get_dis_with_center
                     model.eval()
-                    out0, link_loss0_ = model(x, adjs, args.tau1)
+                    out0, link_loss0_ = model(x, adjs, args.tau1,nb_random_features=1000)
                     sim_y,sim_i,delta,micro_,NMI,ARI=get_dis_with_center(out0,dataset.label,out1,out2)
                     print(NMI,ARI)
                     NMIs.append(NMI)
